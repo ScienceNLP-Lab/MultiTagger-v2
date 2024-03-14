@@ -9,6 +9,8 @@ Download and install the environment using the requirements.txt file. Use the fo
 conda create -n <environment-name> --file requirements.txt
 ```
 
+Before using the models, you will need to download and organize the data (https://uofi.box.com/v/multitagger-v2-data) and labels (https://uofi.box.com/v/multitagger-v2-labels). The data should go in a 'pubmed' directory, and the labels should go in a 'labels' directory. Both of these should be under the data directory within this repository.
+
 ## Training and Using the Models
 
 Performing training and inference with the model is similar. A script (run_experiment_example.sh) is provided containing example commands for both fine-tuning and evaluation. As a general note, inference needs to be run on a validation subset before running on the test subset in order to use the optimized F1 thresholds. A full list of command arguments may be found in the train.py file. 
