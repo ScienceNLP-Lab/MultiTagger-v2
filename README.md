@@ -1,6 +1,6 @@
 # MultiTagger-AMIA
 
-This repository contains the code and links to the data, labels, and some pre-trained models.
+This repository contains code and links to the data, labels, and some pre-trained models relating to our work published at the AMIA symposium 2024, "Publication Type Tagging using Transformer Models and Multi-Label Classification".
 
 ## Getting Started
 
