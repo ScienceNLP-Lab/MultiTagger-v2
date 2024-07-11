@@ -1,4 +1,4 @@
-# MultiTagger
+# MultiTagger-AMIA
 
 This repository contains the code and links to the data, labels, and some pre-trained models.
 
