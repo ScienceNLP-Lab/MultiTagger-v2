@@ -5,8 +5,6 @@ This repository contains code and links to data, labels, and pre-trained models 
 If you find this work helpful to your research, please consider citing our paper.
 
 ```
-function test() {
-  console.log("
 @inproceedings{menke2024tptindexing,
   title={Publication Type Tagging using Transformer Models and Multi-Label Classification},
   author={Joe D Menke, Halil Kilicoglu, Neil R Smalheiser},
@@ -14,6 +12,5 @@ function test() {
   publisher={American Medical Informatics Association},
   year={2024},
   doi={10.1101/2025.03.06.25323516}
-}");
 }
 ```
