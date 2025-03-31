@@ -7,7 +7,7 @@ If you find this work helpful to your research, please consider citing our paper
 ```
 @inproceedings{menke2024tptindexing,
   title={Publication Type Tagging using Transformer Models and Multi-Label Classification},
-  author={Joe D Menke, Halil Kilicoglu, Neil R Smalheiser},
+  author={Menke, Joe D. and Kilicoglu, Halil and Smalheiser, Neil R.},
   booktitle={AMIA Annual Symposium Proceedings},
   publisher={American Medical Informatics Association},
   year={2024},
