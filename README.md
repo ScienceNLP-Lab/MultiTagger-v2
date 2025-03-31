@@ -2,7 +2,7 @@
 This repository contains code and links to data, labels, and pre-trained models relating to work extending MultiTagger-v1, which can be found here: ["Fifty Ways to Tag your Pubtypes: Multi-Tagger, a Set of Probabilistic Publication Type and Study Design Taggers to Support Biomedical Indexing and Evidence-Based Medicine"](https://www.medrxiv.org/content/10.1101/2021.07.13.21260468v1).
 
 ## Citation
-If you find this work helpful to your research, please consider citing our paper.
+If you find this work helpful to your research, please consider citing our papers.
 
 ```
 @inproceedings{menke2024tptindexing,
