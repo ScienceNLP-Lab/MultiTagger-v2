@@ -1,7 +1,7 @@
 # MultiTagger V2
 This repository contains code and links to data, labels, and links to pre-trained models for work extending MultiTagger-v1, which can be found here: ["Fifty Ways to Tag your Pubtypes: Multi-Tagger, a Set of Probabilistic Publication Type and Study Design Taggers to Support Biomedical Indexing and Evidence-Based Medicine"](https://www.medrxiv.org/content/10.1101/2021.07.13.21260468v1).
 
-The AMIA directory relates to work published in AMIA's 2024 annual symposium, which forumulates the task as multi-label and fine-tunes a PubMedBERT encoder for all classes. The JBI directory relates to work available through medRxiv that explores the use of full-text features for this task, a discussion of label noise (and the use of noise-aware training strategies), as well as a more exhaustive evaluation of BERT-based encoders and contrastive learning frameworks.
+The AMIA directory relates to [work](https://pubmed.ncbi.nlm.nih.gov/40417522/) published in AMIA's 2024 annual symposium, which forumulates the task as multi-label and fine-tunes a PubMedBERT encoder for all classes. The JBI directory relates to [work](https://www.medrxiv.org/content/10.1101/2025.04.23.25326300v2) available through medRxiv that explores the use of full-text features for this task, a discussion of label noise (and the use of noise-aware training strategies), as well as a more exhaustive evaluation of BERT-based encoders and contrastive learning frameworks.
 
 ## Citation
 If you find this work helpful, please consider citing our papers.
