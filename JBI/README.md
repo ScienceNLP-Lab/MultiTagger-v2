@@ -9,7 +9,7 @@ Download and install the environment using the requirements.txt file. Use the fo
 conda create -n <environment-name> --file requirements.txt
 ```
 
-Before using the models, you will need to download and organize the data (pubmed_data.csv and pmc_data.csv) and labels (split_stratified_data.csv) [available through box](https://uofi.box.com/s/lgvnrqqukab4b4izu7wr7dc4ood0z8w2). The data should go in a 'pubmed' directory, and the labels should go in a 'labels' directory. Both of these should be under the data directory within this repository.
+Before using the models, you will need to download and organize the data (pubmed_data.csv and pmc_data.csv) and labels (split_stratified_data.csv) [available through box](https://uofi.box.com/s/lgvnrqqukab4b4izu7wr7dc4ood0z8w2). The data should go in 'pubmed' and 'pmc' directories. Labels should go in a 'labels' directory. Both of these should be under the data directory within this repository.
 
 ## Training and Using the Models
 
