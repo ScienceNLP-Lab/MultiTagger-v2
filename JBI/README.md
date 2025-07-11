@@ -13,6 +13,6 @@ Before using the models, you will need to download and organize the data (pubmed
 
 ## Training and Using the Models
 
-Performing training and inference with the model is similar. A script (run_experiment_example.sh) is provided containing example commands for both fine-tuning and evaluation. A full list of command arguments may be found in the train.py file. 
+Performing training and inference with the model is similar. Two scripts (experiments) are provided for the experiments using the previous architecture described in the AMIA work as well as the best performing experiment within this work. A full list of command arguments may be found in the train.py file. 
 
 To avoid having to fine-tune, the best performing pretrained model (i.e., asymmetric loss with label smoothing and WeighCon contrastive loss) is available [here](https://uofi.box.com/s/uspvg8s3hwzkp3zcd89jxrpj7ift4jqp). Simply download it and add the filepath of the directory containing the model as the checkpoint argument. The model is available under "best_model.pth"; the model's predictions and performances on the validation and test sets are also available there.
