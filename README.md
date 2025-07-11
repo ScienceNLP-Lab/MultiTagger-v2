@@ -15,8 +15,7 @@ If you find this work helpful, please consider citing our papers.
   year={2024},
   doi={10.1101/2025.03.06.25323516}
 }
-```
-```
+
 @article{menke2025enhancing,
   title={Enhancing automated indexing of publication types and study designs in biomedical literature using full-text features},
   author={Menke, Joe D and Ming, Shufan and Radhakrishna, Shruthan and Kilicoglu, Halil and Smalheiser, Neil R},
