@@ -13,9 +13,11 @@ import time, os, json, csv
 from argparse import ArgumentParser
 from metrics import calculate_multilabel_metrics
 from sklearn.metrics import precision_recall_curve
+from safetensors.torch import save_file, load_file
 
 import torch._dynamo
 torch._dynamo.reset()
+
 
 def set_random_seed(seed_input: int):
 	random.seed(seed_input)
@@ -35,36 +37,90 @@ def set_device(args):
 	return args
 
 
-def round_using_optimal_f1_threshold(predictions_logits, labels, list_of_label_names, optimal_thesholds):
+def save_checkpoint(model, optimizer, scaler, scheduler, epoch, step, optimal_thresholds, fpath_base, config):
+    # 1. Save model weights safely
+    save_file(model.state_dict(), f"{fpath_base}.safetensors")
+    
+    # 2. Save training state (optimizer + scaler + optional scheduler)
+    training_state = {
+        "optimizer": optimizer.state_dict(),
+        "scaler": scaler.state_dict(),
+        "epoch": epoch,
+        "step": step,
+        "optimal_thresholds": optimal_thresholds
+    }
+    
+    if getattr(config, "lr_scheduler", False) and scheduler is not None:
+        training_state["lr_scheduler"] = scheduler.state_dict()
+    
+    torch.save(training_state, f"{fpath_base}_continue_training.pt")
+
+
+def load_checkpoint(model, optimizer=None, scaler=None, scheduler=None, fpath_base=None, config=None):
+    # 1. Load model weights
+    state_dict = load_file(f"{fpath_base}.safetensors")
+    model.load_state_dict(state_dict)
+
+    # 2. Load training state
+    training_state = torch.load(f"{fpath_base}_continue_training.pt", map_location=config.device)
+
+    # Only load optimizer/scaler/scheduler if objects were passed in
+    if optimizer is not None and "optimizer" in training_state:
+        optimizer.load_state_dict(training_state["optimizer"])
+
+    if scaler is not None and "scaler" in training_state:
+        scaler.load_state_dict(training_state["scaler"])
+
+    if (
+        getattr(config, "lr_scheduler", False)
+        and scheduler is not None
+        and "lr_scheduler" in training_state
+    ):
+        scheduler.load_state_dict(training_state["lr_scheduler"])
+
+    epoch = training_state.get("epoch", 0)
+    step = training_state.get("step", 0)
+    optimal_thresholds = training_state.get("optimal_thresholds", {})
+
+    return model, optimizer, scaler, scheduler, epoch, step, optimal_thresholds
+
+
+def round_using_optimal_f1_threshold(predictions_logits, labels, list_of_label_names, optimal_thresholds):
 	"""
 	Round multi-label predictions for optimal F1, where each label is rounded using its own optimal threshold.
 	:param predictions_logits: list of lists or similar - prediction logits from model
 	:param labels: list of lists or similar - true labels
 	:param list_of_label_names: list of strings with name of each label
-	:param optimal_thesholds: a dict containing optimal threshold cut-offs
+	:param optimal_thresholds: a dict containing optimal threshold cut-offs
 	:return: list of lists or similar - binary predictions from model
 	"""
 	labels = np.array([np.array(xi).astype(np.int32) for xi in labels])
 	predictions_logits = np.array([np.array(xi) for xi in predictions_logits])
 	predictions_binary = np.zeros(predictions_logits.shape)
-	if not optimal_thesholds:
-		optimal_thesholds = dict()
+	pos_counts = labels.sum(axis=0)
+	if not optimal_thresholds:
+		optimal_thresholds = dict()
 		for i in range(len(list_of_label_names)):
-			precision, recall, thresholds = precision_recall_curve(labels[:, i], predictions_logits[:, i])
-			f1_scores = np.divide(2 * recall * precision, recall + precision, out=np.zeros_like(recall + precision), where=(recall + precision!=0))
-			max_f1_thresh = thresholds[np.argmax(f1_scores)]
-			optimal_thesholds[list_of_label_names[i]] = max_f1_thresh
-			predictions_binary[:, i] = np.where(predictions_logits[:, i] > max_f1_thresh, 1, 0)
+			# require 50 or more instances of each label, otherwise pick 0.5
+			if pos_counts[i] < 50:
+				optimal_thresholds[list_of_label_names[i]] = 0.5
+				predictions_binary[:, i] = np.where(predictions_logits[:, i] > 0.5, 1, 0)
+			else:
+				precision, recall, thresholds = precision_recall_curve(labels[:, i], predictions_logits[:, i])
+				f1_scores = np.divide(2 * recall * precision, recall + precision, out=np.zeros_like(recall + precision), where=(recall + precision!=0))
+				max_f1_thresh = thresholds[np.argmax(f1_scores)]
+				optimal_thresholds[list_of_label_names[i]] = max_f1_thresh
+				predictions_binary[:, i] = np.where(predictions_logits[:, i] > max_f1_thresh, 1, 0)
 	else:
 		for i in range(len(list_of_label_names)):
 			try:
-				predictions_binary[:, i] = np.where(predictions_logits[:, i] > optimal_thesholds[list_of_label_names[i]], 1, 0)
+				predictions_binary[:, i] = np.where(predictions_logits[:, i] > optimal_thresholds[list_of_label_names[i]], 1, 0)
 			except KeyError:
 				predictions_binary[:, i] = np.where(predictions_logits[:, i] > 0.5, 1, 0)  # uses 0.5 if no key available
-	return predictions_binary, optimal_thesholds
+	return predictions_binary, optimal_thresholds
 
 
-def evaluate(model, loss_fn, data, config, batch_num, list_name_=[], epoch=0, name='', optimal_thesholds=None):
+def evaluate(model, loss_fn, data, config, batch_num, list_name_=[], epoch=0, name='', optimal_thresholds=None):
 	progress = tqdm.tqdm(total=batch_num, ncols=75, desc='{} {}'.format(name, epoch))
 	list_name = list_name_.copy()
 	sid = []
@@ -127,9 +183,9 @@ def evaluate(model, loss_fn, data, config, batch_num, list_name_=[], epoch=0, na
 	
 	avg_running_loss = running_loss/len(data)
 	if config.optimal_f1_threshold:
-		binary_predictions, optimal_thesholds = round_using_optimal_f1_threshold(probability_predictions, true_labels, list_name, optimal_thesholds)
+		binary_predictions, optimal_thresholds = round_using_optimal_f1_threshold(probability_predictions, true_labels, list_name, optimal_thresholds)
 	else:
-		optimal_thesholds = None
+		optimal_thresholds = None
 		probability_predictions = np.array([np.array(xi) for xi in probability_predictions])
 		binary_predictions = np.zeros(probability_predictions.shape)
 		for i in range(len(list_name)):
@@ -162,7 +218,7 @@ def evaluate(model, loss_fn, data, config, batch_num, list_name_=[], epoch=0, na
 	if isinstance(binary_predictions, np.ndarray):
 		binary_predictions = binary_predictions.tolist()
 
-	return sid, avg_running_loss, true_final, preds_final, base_performance_metrics, all_performance_metrics, probability_predictions, binary_predictions, true_labels, optimal_thesholds
+	return sid, avg_running_loss, true_final, preds_final, base_performance_metrics, all_performance_metrics, probability_predictions, binary_predictions, true_labels, optimal_thresholds
 
 
 def train(config):
@@ -183,7 +239,7 @@ def train(config):
 			os.makedirs(log_dir, exist_ok=True)
 			config.checkpoint = log_dir
 		log_fpath = os.path.join(log_dir, 'log.txt')
-		best_model_fpath = os.path.join(log_dir, 'best_model.pth')
+		best_model_fpath = os.path.join(log_dir, 'best_model')
 		with open(log_fpath, 'w', encoding='utf-8') as w:
 			w.write(str(config) + '\n')
 
@@ -226,14 +282,13 @@ def train(config):
 	else:
 		optimizer = torch.optim.AdamW(params=param_groups, eps=config.epsilon, weight_decay=config.optimizer_weight_decay)
 
+	scheduler = None
 	if config.lr_scheduler == 'linear':
 		scheduler = torch.optim.lr_scheduler.LinearLR(
 			optimizer,
 			total_iters=total_steps,
 		)
 	elif config.lr_scheduler == 'cosine':
-		# See https://discuss.pytorch.org/t/how-to-implement-torch-optim-lr-scheduler-cosineannealinglr/28797/5 for implementation example
-		# Delete after debugging
 		if config.lr_scheduler_restarts == 'per_epoch':
 			# Schedules over each batch - lowers the learning rate to its minimum in each epoch and then restart from the base learning rate
 			scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -264,19 +319,12 @@ def train(config):
 	elif config.loss_function == 'asl':  # asymmetric loss
 		loss_fn = AsymmetricLossOptimized()
 	elif config.loss_function == 'asl_ls':  # asymmetric loss w/ label smoothing
-		loss_fn = AsymmetricLossOptimized_LabelSmoothing(num_labels, alpha=config.ls_alpha)
+		loss_fn = AsymmetricLossOptimized_LabelSmoothing(num_labels, alpha=config.ls_alpha, gamma_neg=config.ls_gamma_neg, gamma_pos=config.ls_gamma_pos, clip=config.ls_clip)
 
 	best_metric, best_epoch, start_epoch = 0, 0, 0
 
 	if config.continue_training:
-		checkpoint = torch.load(best_model_fpath, weights_only=True)
-		model.load_state_dict(checkpoint['model_state_dict'])
-		optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-		scaler.load_state_dict(checkpoint['scaler_state_dict'])
-		if config.lr_scheduler:
-			scheduler.load_state_dict(checkpoint['lr_scheduler_state_dict'])
-		start_epoch = checkpoint['epoch']
-		start_step = checkpoint['step']
+		model, optimizer, scaler, scheduler, start_epoch, start_step, best_thresholds = load_checkpoint(model, optimizer, scaler, scheduler, best_model_fpath, config)
 		start = False
 
 	break_flag = False
@@ -321,13 +369,13 @@ def train(config):
 			if step % eval_steps == 0:
 				print('\nINFO: Training loss is ', running_loss/step)
 				if epoch >= config.eval_after_epoch:
-					sid, eval_avg_loss, target_result, valid_result, base_performance_metrics, all_performance_metrics, probability_predictions, binary_predictions, true_labels, optimal_thesholds = evaluate(
+					sid, eval_avg_loss, target_result, valid_result, base_performance_metrics, all_performance_metrics, probability_predictions, binary_predictions, true_labels, optimal_thresholds = evaluate(
 						model, loss_fn, val_dataset, config, val_batch_num, list_name_=list_name, epoch=epoch, name='VALID'
 						)
 					print('\nINFO: Validation loss is ', eval_avg_loss)
 					print(f'\nINFO: Performance is {base_performance_metrics}')
 					if config.save:
-						result = json.dumps({'epoch': epoch, 'train_loss': running_loss/len(train_dataset), 'eval_loss': eval_avg_loss, 'performance_metrics': all_performance_metrics})
+						result = json.dumps({'epoch': str(epoch), 'train_loss': str(running_loss/len(train_dataset)), 'eval_loss': str(eval_avg_loss), 'performance_metrics': str(all_performance_metrics)})
 						with open(log_fpath, 'a', encoding='utf-8') as w:
 							w.write(result + '\n')
 						print('\nINFO: Log file: ', log_fpath)
@@ -341,12 +389,13 @@ def train(config):
 							best_epoch = epoch
 							best_metric = comparison_metric
 							best_model = model
-							best_thresholds = optimal_thesholds
-							if config.lr_scheduler:
-								torch.save({'config': config, 'epoch': epoch, 'step': step, 'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict(), 'scaler_state_dict': scaler.state_dict(), 'lr_scheduler': scheduler.state_dict(), 'optimal_thesholds': optimal_thesholds}, best_model_fpath)
+							best_thresholds = optimal_thresholds
+							
+							if config.bert_model_name == "allenai/specter2_base" and config.bert_adapter:  # adapters don't seem to save using safetensors
+								torch.save({'epoch': epoch, 'step': step, 'model_state_dict': dict(model=model.state_dict(), config=config), 'optimizer_state_dict': optimizer.state_dict(), 'scaler_state_dict': scaler.state_dict()}, best_model_fpath)
 							else:
-								torch.save({'config': config, 'epoch': epoch, 'step': step, 'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict(), 'scaler_state_dict': scaler.state_dict(), 'optimal_thesholds': optimal_thesholds}, best_model_fpath)
-
+								save_checkpoint(best_model, optimizer, scaler, scheduler, epoch, step, optimal_thresholds, best_model_fpath, config)
+							
 							# saves predictions of best model
 							performance_save_path = os.path.join(config.checkpoint, 'val_performance.txt')
 							with open(performance_save_path, 'w', encoding='utf-8') as w:
@@ -395,13 +444,13 @@ def train(config):
 		progress.close()
 
 	if config.save:
-		best = json.dumps({'best epoch': best_epoch})
+		best = json.dumps({'best epoch': str(best_epoch)})
 		with open(log_fpath, 'a', encoding='utf-8') as w:
 			w.write(best + '\n')
 	
 	# Get performance of best model on test set
 	test_batch_num = len(test_dataset) // config.eval_batch_size + (len(test_dataset) % config.eval_batch_size != 0)
-	sid, eval_avg_loss, target_result, valid_result, base_performance_metrics, all_performance_metrics, probability_predictions, binary_predictions, true_labels, optimal_thesholds = evaluate(best_model, loss_fn, test_dataset, config, test_batch_num, list_name_=list_name, epoch=epoch, name='TEST', optimal_thesholds=best_thresholds)
+	sid, eval_avg_loss, target_result, valid_result, base_performance_metrics, all_performance_metrics, probability_predictions, binary_predictions, true_labels, optimal_thresholds = evaluate(best_model, loss_fn, test_dataset, config, test_batch_num, list_name_=list_name, epoch=epoch, name='TEST', optimal_thresholds=best_thresholds)
 	if config.save:
 		performance_save_path = os.path.join(config.checkpoint, 'test_performance.txt')
 		with open(performance_save_path, 'w', encoding='utf-8') as w:
@@ -427,7 +476,6 @@ def train(config):
 				writer.writerow(content)
 
 
-
 def test(config):
 	train_dataset, val_dataset, test_dataset, list_name, config = data_load(config)  # list_name is list of labels
 	num_labels = len(list_name)
@@ -440,10 +488,11 @@ def test(config):
 		else:
 			model = BertForMultiLabelClassification(config, num_labels)
 
-	checkpoint_path = os.path.join(config.checkpoint, 'best_model.pth')
-	checkpoint = torch.load(checkpoint_path)
-	best_thresholds = checkpoint['optimal_thesholds']
-	model.load_state_dict(checkpoint['model_state_dict'])
+	checkpoint_path = os.path.join(config.checkpoint, 'best_model')
+	model, _, _, _, start_epoch, start_step, best_thresholds = load_checkpoint(
+		model, optimizer=None, scaler=None, scheduler=None,
+		fpath_base=checkpoint_path, config=config
+	)
 	model.to(config.device)
 
 	if config.train_val_test == 'val':
@@ -460,10 +509,10 @@ def test(config):
 	elif config.loss_function == 'asl':  # asymmetric loss
 		loss_fn = AsymmetricLossOptimized()  # default parameters
 	elif config.loss_function == 'asl_ls':  # asyemmetric loss with label smoothing
-		loss_fn = AsymmetricLossOptimized_LabelSmoothing(num_labels, alpha=config.ls_alpha)  # default parameter
+		loss_fn = AsymmetricLossOptimized_LabelSmoothing(num_labels, alpha=config.ls_alpha, gamma_neg=config.ls_gamma_neg, gamma_pos=config.ls_gamma_pos, clip=config.ls_clip)  # default parameter
 
 	eval_batch_num = len(dataset) // config.eval_batch_size + (len(dataset) % config.eval_batch_size != 0)
-	sid, eval_avg_loss, target_result, valid_result, base_performance_metrics, all_performance_metrics, probability_predictions, binary_predictions, true_labels, optimal_thesholds = evaluate(model, loss_fn, dataset, config, eval_batch_num, list_name_=list_name, name='TEST', optimal_thesholds=best_thresholds)
+	sid, eval_avg_loss, target_result, valid_result, base_performance_metrics, all_performance_metrics, probability_predictions, binary_predictions, true_labels, optimal_thresholds = evaluate(model, loss_fn, dataset, config, eval_batch_num, list_name_=list_name, name='TEST', optimal_thresholds=best_thresholds)
 
 	if config.save:
 		if config.label_split:
@@ -508,7 +557,8 @@ if __name__ == '__main__':
 	parser.add_argument('--max_length', type=int, default=512, help='int of max input length for the model')
 	parser.add_argument('--verbalize', type=str, default='short', help='whether to verbalize non-missing data')
 	parser.add_argument('--verbalize_missing', type=str, default='', help='whether to verbalize missing data')
-	parser.add_argument('--remove_feature', type=str, default='', help='name a single feature to remove for ablation')
+	parser.add_argument('--remove_feature', type=str, default='pub_date', help='name a single feature to remove for ablation')
+	parser.add_argument('--remove_multiple_features', type=str, default='', help='name multiple features to remove for ablation, separate by semicolon')
 	parser.add_argument('--full_text', type=str, default='', help='Prefer full-text articles for training')
 	parser.add_argument('--align_full_text_only_comparison', type=str, default='', help='Restrict to full-text articles only for eval')
 
@@ -523,6 +573,9 @@ if __name__ == '__main__':
 	# Hyperparameters related to loss functions
 	parser.add_argument('--loss_function', type=str, default='asl_ls', help='loss function to use for classification')
 	parser.add_argument('--ls_alpha', type=float, default=0.05, help='alpha to control level of label smoothing')
+	parser.add_argument('--ls_gamma_neg', type=int, default=4, help='control weighting to learn from negative instances')
+	parser.add_argument('--ls_gamma_pos', type=int, default=1, help='control weighting to learn from positive instances')
+	parser.add_argument('--ls_clip', type=float, default=0.05, help='alpha to control level of label smoothing')
 	
 	# Hyperparameters related to training, model independent
 	parser.add_argument('--select_model_using', type=str, default='macro', help='macro, micro, or core - all f1 averages')
@@ -562,7 +615,7 @@ if __name__ == '__main__':
 	
 	print("config: ", config)
 
-	if config.train_val_test == 'val' or config.train_val_test == 'test':
+	if 'val' in config.train_val_test or 'test' in config.train_val_test:
 		if not config.checkpoint:
 			raise Exception('No checkpoint argument detected. Please fine-tune a checkpoint and add location as an argument.')
 		test(config)
