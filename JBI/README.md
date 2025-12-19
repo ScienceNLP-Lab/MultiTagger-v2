@@ -16,3 +16,13 @@ Before using the models, you will need to download and organize the data (pubmed
 Performing training and inference with the model is similar. Two scripts (experiments) are provided for the experiments using the previous architecture described in the AMIA work as well as the best performing experiment within this work. A full list of command arguments may be found in the train.py file. 
 
 To avoid having to fine-tune, the best performing pretrained model (i.e., asymmetric loss with label smoothing and WeighCon contrastive loss) is available [here](https://uofi.box.com/s/uspvg8s3hwzkp3zcd89jxrpj7ift4jqp). Simply download it and add the filepath of the directory containing the model as the checkpoint argument. The model is available under "best_model.pth"; the model's predictions and performances on the validation and test sets are also available there.
+
+## Error Analysis
+
+The manual_review_sample_named_list.xlsx file contains 333 articles, NLM's labels, and their predictions using the best performing model. It contains the follwing information:
+* preds: predictions from the best model
+* gold_labels: gold labels from PubMed
+* updated_gold_labels: updated labels that I created.
+* notes: short notes
+* TP|FP|FN: original counts
+* updated_(TP|FP|FN): updated counts
