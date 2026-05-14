@@ -43,6 +43,22 @@ The DPR-BAG pipeline additionally requires:
 
 ---
 
+## Running Experiments
+
+All `.sh` scripts are written for SLURM but can be adapted to other HPC schedulers or run locally. Before running, set the following environment variables or edit the scripts directly:
+
+```bash
+export PROJECT_ROOT=/path/to/dpr-bag
+export CONDA_BASE=$HOME/miniconda3
+export CONDA_ENV=dpr_bag      # adjust per script
+```
+
+If using SLURM: Replace `YOUR_ALLOCATION` in each `.sh` file with your SLURM account name before submitting with sbatch.
+If using another scheduler: Replace the #SBATCH directives at the top of each .sh file with the equivalent directives for your system.
+If running locally: The core commands inside each .sh file can be run directly in your terminal after setting the environment variables above.
+
+---
+
 ## Pipeline Overview
 
 ### Step 1: Splitting
@@ -160,20 +176,6 @@ python eval_rouge.py \
 |---|---|---|
 | PubMedSum | `ccdv/pubmed-summarization` | Public benchmark |
 | PMC-MAD | `TODO/pmc-mad` | Update with your dataset path |
-
----
-
-## SLURM
-
-All `.sh` scripts are written for SLURM. Before submitting, set the following environment variables or edit the scripts directly:
-
-```bash
-export PROJECT_ROOT=/path/to/dpr-bag
-export CONDA_BASE=$HOME/miniconda3
-export CONDA_ENV=dpr_bag      # adjust per script
-```
-
-Replace `YOUR_ALLOCATION` in each `.sh` file with your SLURM account name.
 
 ---
 
