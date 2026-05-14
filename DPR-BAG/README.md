@@ -54,7 +54,9 @@ export CONDA_ENV=dpr_bag      # adjust per script
 ```
 
 If using SLURM: Replace `YOUR_ALLOCATION` in each `.sh` file with your SLURM account name before submitting with sbatch.
+
 If using another scheduler: Replace the #SBATCH directives at the top of each .sh file with the equivalent directives for your system.
+
 If running locally: The core commands inside each .sh file can be run directly in your terminal after setting the environment variables above.
 
 ---
