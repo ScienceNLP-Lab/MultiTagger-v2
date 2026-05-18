@@ -1,4 +1,4 @@
-# DPR-BAG: Document-to-Paragraph Rhetorical Biomedical Abstract Generation
+# DPR-BAG: Divide-Prompt-Refine: a Training-Free, Structure-Aware Framework for Biomedical Abstract Generation
 
 DPR-BAG is a pipeline for generating abstracts for biomedical articles that lack them. Given a full-text article, the system first splits it into rhetorical sections (background, objective, methods, results, conclusions), summarizes each section using an LLM, and then refines the summaries into a coherent abstract.
 
