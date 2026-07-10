@@ -190,5 +190,28 @@ python eval_rouge.py \
 ---
 
 ## Citation
-
-*(Add citation here when the paper is published.)*
+```
+@inproceedings{lin-etal-2026-divide,
+    title = "Divide-Prompt-Refine: a Training-Free, Structure-Aware Framework for Biomedical Abstract Generation",
+    author = "Lin, Sylvey  and
+      Menke, Joseph  and
+      Ming, Shufan  and
+      Nam, Dongin  and
+      Smalheiser, Neil  and
+      Kilicoglu, Halil",
+    editor = "Demner-Fushman, Dina  and
+      Ananiadou, Sophia  and
+      Roberts, Kirk  and
+      Tsujii, Junichi",
+    booktitle = "{B}io{NLP} 2026",
+    month = jul,
+    year = "2026",
+    address = "San Diego, California",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2026.bionlp-1.64/",
+    doi = "10.18653/v1/2026.bionlp-1.64",
+    pages = "770--790",
+    ISBN = "979-8-89176-434-7",
+    abstract = "Biomedical abstracts play a critical role in downstream NLP applications, such as information retrieval, biocuration, and biomedical knowledge discovery. However, a non-trivial number of biomedical articles do not have abstracts, diminishing the utility of these articles for downstream tasks. We propose DPR-BAG (Divide, Prompt, and Refine for Biomedical Abstract Generation), a training-free, zero-shot framework that generates coherent and factually grounded abstracts for biomedical articles with full text but no abstract. DPR-BAG decomposes full-text documents into structured rhetorical facets following the Background-Objective-Methods-Results-Conclusions (BOMRC) schema, performs parallel LLM-based summarization for each facet, and applies a final refinement stage to restore global discourse coherence. On PMC-MAD, a distribution-aligned dataset of 46,309 biomedical articles, DPR-BAG improves abstractive novelty over strong extractive and fine-tuned baselines, while maintaining factual consistency. Our ablation study reveals a counterintuitive finding: increasing prompt complexity or explicitly injecting entity-level guidance can degrade factual alignment, highlighting the importance of controlled prompting strategies. These findings underscore the potential of training-free, structure-aware frameworks for scalable biomedical abstract generation in low-resource settings. Our data and code are available at https://huggingface.co/datasets/pmc-mad/PMC-MAD and https://github.com/ScienceNLP-Lab/MultiTagger-v2/tree/main/DPR-BAG."
+}
+```
